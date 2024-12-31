@@ -1,0 +1,9 @@
+.toolbar {
+  > :not(:first-child) {
+    margin-left: 0.5rem;
+  }
+}
+
+span.spacer {
+  flex: 1 1 auto;
+}

@@ -1,0 +1,12 @@
+<mat-toolbar class="toolbar">
+  <button class="sidenav-toggle" mat-mini-fab (click)="toggleSideNav.emit()">
+    <mat-icon>menu</mat-icon>
+  </button>
+  <span class="title">{{ title }}</span>
+  <span class="spacer"></span>
+  <mat-slide-toggle
+    [checked]="themeService.isDarkTheme()"
+    (change)="themeService.toggleTheme()">
+  </mat-slide-toggle>
+</mat-toolbar>
+<mat-divider></mat-divider>
