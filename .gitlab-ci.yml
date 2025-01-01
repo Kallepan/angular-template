@@ -1,21 +1,43 @@
+include:
+  - project: 'templates/ci'
+    ref: main
+    file: increment.gitlab-ci.yml
+
+default:
+  tags:
+    - k8s
+
 variables:
-  # Docker in Docker
-  DOCKER_HOST: tcp://docker:2376/
-  DOCKER_TLS_VERIFY: '1'
-  DOCKER_TLS_CERTDIR: '/certs'
-  DOCKER_CERT_PATH: '/certs/client'
-
-stages:
-  - build
-
-services:
-  - name: docker:dind
-    command:
-      [
-        '/bin/sh',
-        '-c',
-        '(update-ca-certificates && dockerd-entrypoint.sh || exit )',
-      ]
+  NEXTVERSION:
+    value: 'increment-existing-image-version'
+    description: "Force a specific semver on the next run or leave at 'increment-existing-image-version' to read it from image with 'latest-prod' tag. If there is no image yet, it will be auto-set to 0.0.1. Built-in sember increment logic does not support prerelease syntax."
+  VERSIONCOMPONENTTOINCREMENT:
+    value: '-p'
+    description: '-p = patch (3rd segment), -m minor (2nd segment), -M (1st sgement)'
+  SEMVERREGEX:
+    '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$'
+    # only allows 3 position numeric since the increment logic does not handle prereleases.
+    # Full version: https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
+    #/$CI_COMMIT_REF_SLUG
+  UPBOUNDPARENTLEVELSFORVAR: 2
+  SUPPLEMENTAL_IMAGE_LABELS_AND_TAGS: >
+    --label org.opencontainers.image.vendor=$CI_SERVER_URL/$GITLAB_USER_LOGIN
+    --label org.opencontainers.image.authors=$CI_SERVER_URL/$GITLAB_USER_LOGIN
+    --label org.opencontainers.image.revision=$CI_COMMIT_SHA
+    --label org.opencontainers.image.source=$CI_PROJECT_URL
+    --label org.opencontainers.image.documentation=$CI_PROJECT_URL
+    --label org.opencontainers.image.licenses=$CI_PROJECT_URL
+    --label org.opencontainers.image.url=$CI_PROJECT_URL
+    --label vcs-url=$CI_PROJECT_URL
+    --label com.gitlab.ci.user=$CI_SERVER_URL/$GITLAB_USER_LOGIN
+    --label com.gitlab.ci.email=$GITLAB_USER_EMAIL
+    --label com.gitlab.ci.tagorbranch=$CI_COMMIT_REF_NAME
+    --label com.gitlab.ci.pipelineurl=$CI_PIPELINE_URL
+    --label com.gitlab.ci.commiturl=$CI_PROJECT_URL/commit/$CI_COMMIT_SHA
+    --label com.gitlab.ci.cijoburl=$CI_JOB_URL
+    --label com.gitlab.ci.mrurl=$CI_PROJECT_URL/-/merge_requests/$CI_MERGE_REQUEST_ID
+    --destination $CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHORT_SHA
+    --destination $CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA
 
 .dind_self_signed_cert:
   before_script:
@@ -24,14 +46,82 @@ services:
     # Wait for docker to be up
     - while ! docker info; do sleep 1; done
 
-build:
-  image: docker:cli
-  stage: build
-  extends: .dind_self_signed_cert
-  script:
-    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG .
-    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
+determin-version:
+  image: bash
+  stage: .pre
   rules:
-    - if: $CI_COMMIT_TAG
-  tags:
-    - k8s
+    - if: '$CI_COMMIT_TAG || $CI_COMMIT_BRANCH || $NEXTVERSION != "increment-existing-image-version"'
+  before_script:
+    - !reference [.increment-semver-function, script]
+  script:
+    - |
+      apk add --quiet yq jq skopeo
+      #You can also grab the latest-prod git version tag with this code: 
+      #    https://gitlab.com/guided-explorations/containers/kaniko-docker-build/-/blob/master/.gitlab-ci.yml#L32-48
+
+      #Observed errors: 'manifest unknown' (no image created yet), 'authentication required' (wrong image path), 'network is unreachable'
+      if [[ "${NEXTVERSION,,}" != "increment-existing-image-version" ]]; then
+        echo "Version number was forced to ${NEXTVERSION}"
+        NEWVERSION=${NEXTVERSION}
+      else
+        skopeo login --username ${CI_REGISTRY_USER} --password ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
+        set +e +o pipefail
+        ATTEMPTEDVERSIONCAPTURE=$( (skopeo inspect docker://$CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:latest-prod | jq -r '.Labels["org.opencontainers.image.version"]') 2>&1 )
+        set -e -o pipefail
+        if [[ $(echo $ATTEMPTEDVERSIONCAPTURE | tr -d "[:space:]") =~ $SEMVERREGEX ]]; then
+          echo "Found a semversion"
+          LATESTVERSION=$ATTEMPTEDVERSIONCAPTURE
+        elif [[ "$ATTEMPTEDVERSIONCAPTURE" == *"manifest unknown"* ]]; then
+          echo "No image found, first time around, setting semver to 0.0.0 before incrementing..."
+          LATESTVERSION="0.0.0"
+        else
+          echo "The following error occurred:"
+          echo $ATTEMPTEDVERSIONCAPTURE
+          exit 5
+        fi 
+        NEWVERSION=$(increment_semver ${VERSIONCOMPONENTTOINCREMENT} ${LATESTVERSION})
+      fi
+      echo "NEWVERSION=${NEWVERSION}" | tee version.env
+  artifacts:
+    reports:
+      dotenv: version.env
+
+build:
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: ['']
+  stage: build
+  rules:
+    - if: '$CI_COMMIT_TAG || $CI_COMMIT_BRANCH || $NEXTVERSION != "increment-existing-image-version"'
+  variables:
+    # The Dockerfile to build
+    DOCKERFILE: Dockerfile
+    KANIKO_ARGS: ''
+  before_script:
+    - cat /usr/local/share/ca-certificates/gitlab.core.infra.server.home.crt >> /kaniko/ssl/certs/ca-certificates.crt
+  script:
+    - echo "NEWVERSION is $NEWVERSION"
+    - mkdir -p /kaniko/.docker
+    # Write credentials to access Gitlab Container Registry within the runner/ci
+    - echo "{\"auths\":{\"${CI_REGISTRY}\":{\"auth\":\"$(printf "%s:%s" "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}" | base64 | tr -d '\n')\"},\"$(echo -n $CI_DEPENDENCY_PROXY_SERVER | awk -F[:] '{print $1}')\":{\"auth\":\"$(printf "%s:%s" ${CI_DEPENDENCY_PROXY_USER} "${CI_DEPENDENCY_PROXY_PASSWORD}" | base64 | tr -d '\n')\"}}}" > /kaniko/.docker/config.json
+    # Build and push the container. To disable push add --no-push
+    - /kaniko/executor --context $CI_PROJECT_DIR --dockerfile $CI_PROJECT_DIR/Dockerfile $SUPPLEMENTAL_IMAGE_LABELS_AND_TAGS --label org.opencontainers.image.version=$NEWVERSION --destination "$CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:$NEWVERSION" $KANIKO_ARGS
+
+promote-image-to-latest-prod:
+  # This promotion process currently tags the qualifyed container as 'latest-prod' in the , however, it could be
+  # changed to make the promotion process to copy the container to an isolated 'production only' registry.
+  # This has the side benefit of making preproduction image cleanup safer since production scales from a
+  # completely separate registry.
+  stage: .post
+  image:
+    name: gcr.io/go-containerregistry/crane:debug
+    entrypoint: ['']
+  rules:
+    - if: '$CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH'
+      when: never
+    - if: '($STAGING_ENABLED || $MANUAL_PROMOTE) && ($CI_COMMIT_TAG || $CI_COMMIT_BRANCH || $NEXTVERSION != "increment-existing-image-version")'
+      when: manual
+    - if: '$CI_COMMIT_TAG || $CI_COMMIT_BRANCH || $NEXTVERSION != "increment-existing-image-version"'
+  script:
+    - crane auth login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - crane tag $CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:$NEWVERSION latest-prod
