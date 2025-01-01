@@ -5,7 +5,7 @@ include:
 
 default:
   tags:
-    - k8s
+    - prod
 
 variables:
   SSL_CERT_DIR: '/usr/local/share/ca-certificates'
