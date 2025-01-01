@@ -8,7 +8,6 @@ default:
     - prod
 
 variables:
-  SSL_CERT_DIR: '/usr/local/share/ca-certificates'
   NEXTVERSION:
     value: 'increment-existing-image-version'
     description: "Force a specific semver on the next run or leave at 'increment-existing-image-version' to read it from image with 'latest-prod' tag. If there is no image yet, it will be auto-set to 0.0.1. Built-in sember increment logic does not support prerelease syntax."
@@ -41,6 +40,8 @@ variables:
     --destination $CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA
 
 determine-version:
+  variables:
+    SSL_CERT_DIR: '/usr/local/share/ca-certificates'
   image: bash
   stage: .pre
   rules:
@@ -106,6 +107,8 @@ promote-image-to-latest-prod:
   # changed to make the promotion process to copy the container to an isolated 'production only' registry.
   # This has the side benefit of making preproduction image cleanup safer since production scales from a
   # completely separate registry.
+  variables:
+    SSL_CERT_DIR: '/usr/local/share/ca-certificates'
   stage: .post
   image:
     name: gcr.io/go-containerregistry/crane:debug
