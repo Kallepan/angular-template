@@ -46,7 +46,7 @@ variables:
     # Wait for docker to be up
     - while ! docker info; do sleep 1; done
 
-determin-version:
+determine-version:
   image: bash
   stage: .pre
   rules:
