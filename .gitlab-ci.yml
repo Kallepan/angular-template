@@ -66,7 +66,7 @@ determine-version:
       else
         skopeo login --tls-verify=false --username ${CI_REGISTRY_USER} --password ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
         set +e +o pipefail
-        ATTEMPTEDVERSIONCAPTURE=$( (skopeo inspect docker://$CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:latest-prod | jq -r '.Labels["org.opencontainers.image.version"]') 2>&1 )
+        ATTEMPTEDVERSIONCAPTURE=$( (skopeo inspect --tls-verify=false docker://$CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:latest-prod | jq -r '.Labels["org.opencontainers.image.version"]') 2>&1 )
         set -e -o pipefail
         if [[ $(echo $ATTEMPTEDVERSIONCAPTURE | tr -d "[:space:]") =~ $SEMVERREGEX ]]; then
           echo "Found a semversion"
