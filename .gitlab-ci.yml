@@ -8,6 +8,7 @@ default:
     - k8s
 
 variables:
+  SSL_CERT_DIR: '/usr/local/share/ca-certificates'
   NEXTVERSION:
     value: 'increment-existing-image-version'
     description: "Force a specific semver on the next run or leave at 'increment-existing-image-version' to read it from image with 'latest-prod' tag. If there is no image yet, it will be auto-set to 0.0.1. Built-in sember increment logic does not support prerelease syntax."
