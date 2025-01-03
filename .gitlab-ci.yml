@@ -93,8 +93,10 @@ test:
   before_script:
     - yarn install
   script:
-    - ng test --no-watch --no-progress --browsers=ChromeHeadless
-
+    - ng test --no-watch --no-progress --browsers=ChromeHeadlessNoSandbox
+  rules:
+    - if: '$CI_COMMIT_TAG || $CI_COMMIT_BRANCH || $NEXTVERSION != "increment-existing-image-version"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
 build:
   image:
     name: gcr.io/kaniko-project/executor:debug
