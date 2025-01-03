@@ -7,6 +7,12 @@ default:
   tags:
     - prod
 
+stages:
+  - .pre
+  - test
+  - build
+  - .post
+
 variables:
   NEXTVERSION:
     value: 'increment-existing-image-version'
