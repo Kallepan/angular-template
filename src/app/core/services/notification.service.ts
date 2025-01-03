@@ -1,36 +1,56 @@
 import { inject, Injectable } from '@angular/core';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { concatMap, of, Subject } from 'rxjs';
+import {
+  MatSnackBar,
+  MatSnackBarHorizontalPosition,
+  MatSnackBarVerticalPosition,
+} from '@angular/material/snack-bar';
+import { constants } from '@core/constants';
+import { concatMap, delay, of, Subject } from 'rxjs';
+
+export enum NotificationType {
+  Success = 'success',
+  Info = 'info',
+  Error = 'error',
+  Warning = 'warning',
+}
 
 export interface Message {
   message: string;
-  type: 'success' | 'error' | 'warning';
+  type: NotificationType;
 }
 
 @Injectable({
   providedIn: 'root',
 })
 export class NotificationService {
+  private readonly _snackBar = inject(MatSnackBar);
+  private readonly _messageSubject = new Subject<Message>();
+
+  private readonly _horizontalPosition: MatSnackBarHorizontalPosition = 'start';
+  private readonly _verticalPosition: MatSnackBarVerticalPosition = 'bottom';
+
   constructor() {
+    // This is technically a memory leak, but it's a singleton service so it's fine
     this._messageSubject
-      .pipe(concatMap(message => this._delaySnackBarMessagePipe(message)))
+      .pipe(
+        concatMap(message => {
+          if (this._snackBar._openedSnackBarRef)
+            return of(message).pipe(delay(constants.MESSAGE_DURATION));
+
+          return of(message);
+        })
+      )
       .subscribe(message => {
         this._snackBar.open(message.message, 'Close', {
-          duration: 3000,
-          panelClass: `snack-bar-${message.type}`,
+          duration: constants.MESSAGE_DURATION,
+          panelClass: message.type,
+          horizontalPosition: this._horizontalPosition,
+          verticalPosition: this._verticalPosition,
         });
       });
   }
 
-  private readonly _snackBar = inject(MatSnackBar);
-  private readonly _messageSubject = new Subject<Message>();
-
-  private _delaySnackBarMessagePipe(message: Message) {
-    const snackBarRef = this._snackBar._openedSnackBarRef;
-    if (snackBarRef) {
-      return snackBarRef.afterDismissed().pipe(() => of(message));
-    }
-
-    return of(message);
+  showMessage(message: string, type: NotificationType) {
+    this._messageSubject.next({ message, type: type });
   }
 }

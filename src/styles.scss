@@ -18,16 +18,41 @@ html {
   @include mat.theme(
     (
       color: (
-        primary: mat.$violet-palette,
+        primary: mat.$azure-palette,
       ),
-      typography: Roboto,
-      density: 0,
     )
   );
 } /* You can add global styles to this file, and also import other style files */
 
 html.dark-mode {
   color-scheme: dark;
+}
 
-  @include mat.toolbar-overrides(());
+.info {
+  @include mat.snack-bar-overrides(
+    (
+      container-color: light-dark(lightblue, blue),
+      button-color: light-dark(black, white),
+      supporting-text-color: light-dark(black, white),
+    )
+  );
+}
+
+.warning {
+  @include mat.snack-bar-overrides(
+    (
+      container-color: light-dark(orange, darkorange),
+      button-color: light-dark(black, black),
+      supporting-text-color: light-dark(black, black),
+    )
+  );
+}
+
+.error {
+  @include mat.snack-bar-overrides(
+    (
+      container-color: var(--mat-sys-error-container),
+      button-color: light-dark(black, white),
+    )
+  );
 }

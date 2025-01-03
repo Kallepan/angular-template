@@ -5,6 +5,7 @@ import { MainComponent } from './main.component';
 import { type HarnessLoader } from '@angular/cdk/testing';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatSidenavHarness } from '@angular/material/sidenav/testing';
+import { provideNoopAnimations } from '@angular/platform-browser/animations';
 
 describe('MainComponent', () => {
   let component: MainComponent;
@@ -14,6 +15,7 @@ describe('MainComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [MainComponent],
+      providers: [provideNoopAnimations()],
     }).compileComponents();
 
     fixture = TestBed.createComponent(MainComponent);
