@@ -1,1 +1,17 @@
-<span class="container"> This is a sidenav </span>
+<span class="container">
+  <mat-nav-list>
+    @for (
+      menuConfigurationItem of menuConfigurationItems;
+      track menuConfigurationItem.title
+    ) {
+      <a mat-list-item>
+        <span class="entry">
+          <mat-icon>{{ menuConfigurationItem.icon }}</mat-icon>
+          <span>{{ menuConfigurationItem.title }}</span>
+        </span>
+      </a>
+    } @empty {
+      <mat-list-item>This is a sidenav</mat-list-item>
+    }
+  </mat-nav-list>
+</span>
