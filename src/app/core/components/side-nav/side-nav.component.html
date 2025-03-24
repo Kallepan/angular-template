@@ -1,13 +1,12 @@
 <span class="container">
   <mat-nav-list>
-    @for (
-      menuConfigurationItem of menuConfigurationItems;
-      track menuConfigurationItem.title
-    ) {
-      <a mat-list-item>
+    @for (menuItem of menuConfigurationItems; track menuItem.title) {
+      <a mat-list-item [href]="menuItem.route">
         <span class="entry">
-          <mat-icon>{{ menuConfigurationItem.icon }}</mat-icon>
-          <span>{{ menuConfigurationItem.title }}</span>
+          <mat-icon>{{ menuItem.icon }}</mat-icon>
+          @if (!isCollapsed) {
+            <span>{{ menuItem.title }}</span>
+          }
         </span>
       </a>
     } @empty {

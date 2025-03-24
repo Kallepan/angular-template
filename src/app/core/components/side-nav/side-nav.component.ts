@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, Input } from '@angular/core';
 
 import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
@@ -12,11 +12,13 @@ export type SideNavMenuConfiguration = {
 
 @Component({
   selector: 'app-side-nav',
-  imports: [MatListModule, MatIconModule],
+  imports: [MatListModule, MatIconModule, MatButtonModule],
   templateUrl: './side-nav.component.html',
   styleUrl: './side-nav.component.scss'
 })
 export class SideNavComponent {
+  @Input() public isCollapsed = true;
+
   public readonly menuConfigurationItems: SideNavMenuConfiguration[] = [
     {
       title: 'Home',

@@ -30,7 +30,7 @@ describe('MainComponent', () => {
   });
 
   it('sideNavOpened should be false', async () => {
-    expect(component.sideNavOpened).toBeFalse();
+    expect(component.isCollapsed).toBeFalse();
 
     const sidenav = await loader.getHarness(MatSidenavHarness);
     expect(await sidenav.isOpen()).toBeFalse();

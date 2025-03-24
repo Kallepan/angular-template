@@ -1,14 +1,15 @@
-<app-header (toggleSideNav)="sideNavOpened = !sideNavOpened"></app-header>
-<mat-sidenav-container
-  class="sidenav-container"
-  (backdropClick)="sideNavOpened = false"
-  autosize>
-  <mat-sidenav #sidenav mode="over" [(opened)]="sideNavOpened">
-    <app-side-nav></app-side-nav>
+<app-header (toggleSideNav)="toggleSideNavMenu()"></app-header>
+<mat-sidenav-container autosize>
+  <mat-sidenav
+    #sidenav
+    [mode]="isMobile ? 'over' : 'side'"
+    [opened]="isMobile ? false : true"
+    [style.width.px]="!isMobile && isCollapsed ? 81 : null">
+    <app-side-nav [isCollapsed]="isCollapsed"></app-side-nav>
   </mat-sidenav>
-
-  <main>
-    <router-outlet></router-outlet>
-  </main>
-  <app-footer></app-footer>
+  <mat-sidenav-content>
+    <main>
+      <router-outlet></router-outlet>
+    </main>
+  </mat-sidenav-content>
 </mat-sidenav-container>

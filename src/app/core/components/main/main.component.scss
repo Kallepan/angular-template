@@ -1,7 +1,7 @@
-.sidenav-container {
-  height: calc(100% - var(--mat-toolbar-standard-height, 64px));
+mat-sidenav-container {
+  height: calc(100% - calc(1px + var(--mat-toolbar-standard-height, 64px)));
 
   @media (max-width: 599px) {
-    height: calc(100% - var(--mat-toolbar-mobile-height));
+    height: calc(100% - calc(1px + var(--mat-toolbar-mobile-height, 57px)));
   }
 }
